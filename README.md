@@ -3,28 +3,57 @@
 
 ### Industrial Visual Inspection Platform | Computer Vision + Data Engineering + MLOps
 
-InspectAI is an end-to-end industrial visual inspection project combining image anomaly detection, 3D point-cloud analysis, and video inspection in a unified platform.
+InspectAI is an end-to-end industrial visual inspection platform that combines **2D anomaly detection, 3D point-cloud inspection, video analysis, and data engineering** in a unified application.
 
-The project demonstrates the integration of data engineering, machine learning, backend APIs, experiment tracking, and containerized deployment.
+The project demonstrates a practical machine learning workflow, from dataset ingestion and validation to model training, inference APIs, experiment tracking, and Docker deployment.
 
-## Features
+## Dashboard Screenshots
+
+The Streamlit dashboard provides four inspection workflows.
+
+### 1. 2D Image Anomaly Detection
+
+![InspectAI 2D Image Inspection](docs/screenshots/dashboard-2d.png)
+
+PatchCore detects anomalies in industrial bottle images and returns a classification, anomaly score, and defect-area measurements.
+
+### 2. 3D Point-Cloud Inspection
+
+![InspectAI 3D Point Cloud Inspection](docs/screenshots/dashboard-3d.png)
+
+Open3D-based inspection measures surface deviations in cylindrical components and compares them against a configurable tolerance.
+
+### 3. Video Anomaly Detection
+
+![InspectAI Video Inspection](docs/screenshots/dashboard-video.png)
+
+OpenCV samples video frames and uses the trained PatchCore model to identify anomalous frames.
+
+### 4. Inspection History
+
+![InspectAI Inspection History](docs/screenshots/dashboard-history.png)
+
+SQLite stores inspection reports, which can be reviewed through the dashboard.
+
+## Key Features
 
 - **2D Image Inspection:** Detect anomalous regions using PatchCore and Anomalib.
-- **3D Point-Cloud Inspection:** Measure surface deviations on cylindrical components using Open3D.
-- **Video Inspection:** Sample video frames with OpenCV and classify anomalies.
+- **3D Point-Cloud Inspection:** Measure surface deviations using Open3D.
+- **Video Inspection:** Sample frames with OpenCV and identify anomalies.
 - **Data Engineering:** Validate images, calculate SHA256 checksums, detect duplicates, and version datasets.
-- **MLOps:** Track PatchCore experiments using MLflow.
+- **MLOps:** Track model experiments and metrics with MLflow.
 - **REST API:** Serve inspection endpoints using FastAPI.
-- **Dashboard:** Inspect images, point clouds, videos, and historical results with Streamlit.
+- **Interactive Dashboard:** Inspect images, point clouds, videos, and historical results using Streamlit.
 - **Persistence:** Store inspection reports in SQLite.
-- **Docker:** Run the backend and dashboard in containers.
+- **Containerization:** Run FastAPI and Streamlit with Docker Compose.
+- **Automated Testing:** Validate application components with Pytest.
 
 ## System Architecture
 
 ```mermaid
 flowchart TD
     A[Raw Image Dataset] --> B[Data Ingestion]
-    B --> C[Validation and SHA256 Deduplication]
+    B --> C[Validation and SHA256 Checksums]
     C --> D[Dataset Manifest and Fingerprint]
     D --> E[PatchCore Training]
     E --> F[Trained Model Checkpoint]
@@ -48,14 +77,14 @@ flowchart TD
 
 | Category | Technologies |
 |---|---|
-| Programming | Python 3.11 |
+| Language | Python 3.11 |
 | Machine Learning | PyTorch, Anomalib, PatchCore |
 | Computer Vision | OpenCV |
 | 3D Processing | Open3D, NumPy |
 | Data Engineering | Pandas, SHA256, CSV manifests |
 | Experiment Tracking | MLflow |
 | Backend | FastAPI, Uvicorn |
-| Dashboard | Streamlit |
+| Frontend | Streamlit |
 | Database | SQLite |
 | Deployment | Docker, Docker Compose |
 | Testing | Pytest |
@@ -63,21 +92,19 @@ flowchart TD
 
 ## 1. Data Engineering Pipeline
 
-The ingestion pipeline discovers images, validates supported image files, extracts metadata, calculates SHA256 checksums, and identifies duplicate content.
+The ingestion pipeline performs:
 
-Generated artifacts include:
-
-- Image manifest
-- File validation results
-- SHA256 checksums
-- Duplicate indicators
-- Dataset version fingerprint
+1. Image discovery
+2. File validation
+3. Image metadata extraction
+4. SHA256 checksum calculation
+5. Duplicate detection
+6. CSV manifest generation
+7. Dataset fingerprint creation
 
 ### Dataset
 
-The 2D inspection experiments use the MVTec AD bottle category.
-
-The ingestion exercise processed:
+The 2D experiments use the MVTec AD bottle category.
 
 | Metric | Value |
 |---|---:|
@@ -88,112 +115,130 @@ The ingestion exercise processed:
 
 The count includes training images, test images, and ground-truth masks.
 
-Dataset versioning creates a reproducible fingerprint from manifest entries. This fingerprint can be associated with experiment records.
+The dataset fingerprint is generated from manifest entries and can be associated with experiment records.
 
-**Dataset lineage limitation:** Existing MLflow training runs were associated with the fingerprint retrospectively. Their exact training-data lineage has not been independently verified.
+**Lineage limitation:** Existing MLflow runs were associated with the fingerprint retrospectively. Exact training-data lineage has not been independently verified.
 
-## 2. 2D Anomaly Detection
+## 2. PatchCore Anomaly Detection
 
-InspectAI uses PatchCore through Anomalib to detect anomalies in industrial images.
+InspectAI uses PatchCore through Anomalib for unsupervised industrial image anomaly detection.
 
-Two input resolutions were evaluated:
+Two model resolutions were evaluated.
 
-| Metric | 256 × 256 | 384 × 384 |
+### Model Comparison
+
+| Metric | PatchCore 256 | PatchCore 384 |
 |---|---:|---:|
 | Image AUROC | 1.0000 | 1.0000 |
 | Image F1 | 1.0000 | 1.0000 |
 | Pixel AUROC | 0.9753 | 0.9855 |
 | Pixel F1 | 0.6463 | 0.7504 |
 
-The 384 × 384 model was selected based on the reported evaluation results.
+The 384 × 384 configuration achieved stronger pixel-level results and was selected for deployment.
 
-**Evaluation limitation:** These metrics were used during model selection. They should not be presented as performance on an independent, untouched final test set.
+**Evaluation limitation:** The reported metrics informed model selection and do not represent an independent, untouched final test evaluation.
 
-### Docker API validation
+### Example Defective Image
 
-A known defective bottle produced:
+```json
+{
+  "filename": "002.png",
+  "classification": "DEFECTIVE",
+  "is_anomalous": true,
+  "anomaly_score": 1.0,
+  "defective_pixels": 8349,
+  "mask_height": 384,
+  "mask_width": 384,
+  "defect_area_percentage": 5.66
+}
+```
 
-- Classification: `DEFECTIVE`
-- Anomaly score: `1.0`
-- Defective pixels: `8,349`
-- Defect area: `5.66%`
+### Example Normal Image
 
-A known normal training image produced:
+```json
+{
+  "filename": "000.png",
+  "classification": "NORMAL",
+  "is_anomalous": false,
+  "anomaly_score": 0.368559,
+  "defective_pixels": 0,
+  "mask_height": 384,
+  "mask_width": 384,
+  "defect_area_percentage": 0.0
+}
+```
 
-- Classification: `NORMAL`
-- Anomaly score: approximately `0.3686`
-- Defective pixels: `0`
-
-These examples validate the inference workflow but do not constitute an independent accuracy benchmark.
+These are functional inference examples, not independent accuracy estimates.
 
 ## 3. 3D Point-Cloud Inspection
 
 The 3D pipeline uses Open3D to inspect synthetic cylindrical components.
 
-The inspection compares a pre-aligned scan against a nominal cylindrical reference and measures inward radial deviation.
+The inspection measures inward radial deviations relative to a nominal cylindrical reference.
 
-### Example results
+### Example Results
 
-| Measurement | Value |
+| Measurement | Result |
 |---|---:|
 | Nominal radius | 20.0 mm |
 | Maximum inward deviation | 3.962 mm |
 | Allowed tolerance | 1.0 mm |
-| Defective points | 321 / 10,000 |
+| Defective points | 321 |
+| Total points | 10,000 |
 | Defective sample percentage | 3.21% |
-| Decision | FAIL |
+| Quality-control decision | FAIL |
 
 ### Assumptions
 
-- Point clouds use millimeter units.
+- Point-cloud coordinates use millimeters.
 - The cylinder is centered at the origin.
 - The cylinder axis aligns with the Z-axis.
-- Input scans are pre-aligned with the reference.
-- The tolerance is illustrative, not certified for industrial use.
+- Scans are pre-aligned with the reference.
+- Tolerances are illustrative, not industrially certified.
 
-## 4. Video Inspection
+## 4. Video Anomaly Detection
 
-InspectAI uses OpenCV to sample frames from an uploaded video and applies the image anomaly detector to each sampled frame.
+InspectAI uses OpenCV to sample frames from an uploaded video and applies PatchCore to each sampled frame.
 
-### Example validation
+### Example Results
 
-| Metric | Value |
+| Metric | Result |
 |---|---:|
 | Video frames | 80 |
-| Frame rate | 10 FPS |
+| FPS | 10 |
 | Duration | 8 seconds |
 | Sampling interval | 1 second |
 | Inspected frames | 8 |
 | Defective frames | 2 |
 | Overall decision | FAIL |
 
-Anomalies were detected at approximately 4 and 5 seconds.
+Defective frames were identified at **4 and 5 seconds**.
 
-Frame sampling reduces inference work but can miss defects appearing between sampled frames.
+Sampling reduces inference workload but may miss short defects between sampled frames.
 
-## 5. API Endpoints
+## 5. FastAPI Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/health` | Check API health and model loading |
+| GET | `/health` | Check API and model status |
 | POST | `/inspect` | Inspect a 2D image |
-| POST | `/inspect/3d` | Inspect a 3D PLY point cloud |
+| POST | `/inspect/3d` | Inspect a PLY point cloud |
 | POST | `/inspect/video` | Inspect a video |
 | GET | `/inspections` | List inspection history |
-| GET | `/inspections/{inspection_id}` | Retrieve an inspection report |
+| GET | `/inspections/{inspection_id}` | Retrieve a saved report |
 
 Interactive API documentation:
 
 http://localhost:8001/docs
 
-### Example: Inspect an image
+### Example: 2D Inspection
 
 ```bash
 curl -X POST http://127.0.0.1:8001/inspect \
   -F "file=@data/raw/mvtec/bottle/test/broken_small/002.png"
 ```
 
-### Example: Inspect a point cloud
+### Example: 3D Inspection
 
 ```bash
 curl -X POST http://127.0.0.1:8001/inspect/3d \
@@ -201,7 +246,7 @@ curl -X POST http://127.0.0.1:8001/inspect/3d \
   -F "tolerance_mm=1.0"
 ```
 
-### Example: Inspect a video
+### Example: Video Inspection
 
 ```bash
 curl -X POST http://127.0.0.1:8001/inspect/video \
@@ -214,10 +259,17 @@ curl -X POST http://127.0.0.1:8001/inspect/video \
 ### Requirements
 
 - Python 3.11
-- uv
+- uv package manager
 - Project dependencies
-- A compatible PatchCore checkpoint
-- A reference point cloud for 3D inspection
+- Trained PatchCore checkpoint
+- Reference point cloud for 3D inspection
+
+Clone the repository:
+
+```bash
+git clone https://github.com/Priya0696/InspectAI.git
+cd InspectAI
+```
 
 Install dependencies:
 
@@ -225,11 +277,12 @@ Install dependencies:
 uv sync --locked
 ```
 
-Run the API:
+Start FastAPI:
 
 ```bash
 PYTHONPATH=src uv run uvicorn inspectai.api.main:app \
-  --host 127.0.0.1 --port 8001
+  --host 127.0.0.1 \
+  --port 8001
 ```
 
 In another terminal, start Streamlit:
@@ -239,53 +292,61 @@ PYTHONPATH=src uv run streamlit run dashboard/app.py \
   --server.port 8501
 ```
 
-Open:
+Open the dashboard:
 
 http://localhost:8501
 
-## 7. Running with Docker
+## 7. Docker Deployment
 
-The project includes a Dockerfile and Docker Compose configuration.
+InspectAI includes a Dockerfile and Docker Compose configuration.
 
-Docker has been validated locally on an Apple Silicon ARM64 machine.
+The Docker setup has been validated locally on an Apple Silicon ARM64 machine.
 
-Build the image:
+### Build
 
 ```bash
 docker compose build
 ```
 
-Start the services:
+### Start
 
 ```bash
 docker compose up -d
 ```
 
-Check status:
+### Verify
 
 ```bash
 docker compose ps
-```
-
-Verify API health:
-
-```bash
 curl http://127.0.0.1:8001/health
 ```
 
-Open the dashboard:
+A successful health check returns:
 
-http://localhost:8501
+```json
+{
+  "status": "healthy",
+  "model_loaded": true
+}
+```
 
-Stop services:
+### Access Services
+
+| Service | URL |
+|---|---|
+| Streamlit Dashboard | http://localhost:8501 |
+| FastAPI Documentation | http://localhost:8001/docs |
+| FastAPI Health | http://localhost:8001/health |
+
+### Stop
 
 ```bash
 docker compose down
 ```
 
-### Required local artifacts
+### Required Local Artifacts
 
-The Docker Compose setup expects these files to exist on the host:
+The Docker configuration expects the following files:
 
 ```text
 reports/patchcore_384/Patchcore/MVTecAD/bottle/v0/weights/lightning/model.ckpt
@@ -293,40 +354,43 @@ reports/patchcore_384/Patchcore/MVTecAD/bottle/v0/weights/lightning/model.ckpt
 data/processed/pointclouds/reference_pipe.ply
 ```
 
-The model checkpoint, raw dataset, generated reports, and local databases are intentionally excluded from Git.
+The dataset, trained model checkpoints, generated reports, and local databases are excluded from GitHub.
 
-A fresh clone therefore requires preparing the dataset and model artifacts before starting the complete inference service. The repository is not a one-command, artifact-free installation.
+A fresh clone requires preparing these artifacts before running the full inference service. Docker does not automatically download or train the model.
 
-## 8. Testing
+## 8. Automated Testing
 
-Run the automated test suite:
+Run:
 
 ```bash
 PYTHONPATH=src uv run pytest -q
 ```
 
-Latest verified local result:
+Latest verified result:
 
 ```text
 49 passed, 3 warnings
 ```
 
-Docker integration checks have also verified:
+The three warnings originate from third-party library deprecations.
 
-- FastAPI startup and PatchCore loading
-- Normal and defective image classification
-- Synthetic 3D surface inspection
+### Docker Validation
+
+The following workflows were tested successfully:
+
+- FastAPI startup and model loading
+- Normal image classification
+- Defective image classification
+- Synthetic 3D defect detection
 - Video anomaly detection
 - SQLite inspection history
 - Streamlit dashboard functionality
 
-## 9. Experiment Tracking
+## 9. MLflow Experiment Tracking
 
-MLflow is used to compare PatchCore configurations.
+MLflow tracks the PatchCore configurations, evaluation metrics, and associated dataset-version metadata.
 
-The tracked experiments include 256 × 256 and 384 × 384 model configurations, associated evaluation metrics, and dataset-version metadata.
-
-Start the local MLflow interface:
+Start the MLflow UI:
 
 ```bash
 uv run mlflow ui \
@@ -335,47 +399,79 @@ uv run mlflow ui \
   --port 5000
 ```
 
-Open http://127.0.0.1:5000.
+Open:
 
-## 10. Limitations and Future Work
+http://127.0.0.1:5000
 
-InspectAI is a portfolio and research demonstration, not a certified industrial inspection system.
+## 10. Project Structure
 
-Current limitations include:
+```text
+InspectAI/
+├── dashboard/
+│   └── app.py
+├── docs/
+│   └── screenshots/
+│       ├── dashboard-2d.png
+│       ├── dashboard-3d.png
+│       ├── dashboard-video.png
+│       └── dashboard-history.png
+├── scripts/
+│   ├── data/
+│   ├── mlops/
+│   ├── three_d/
+│   └── video/
+├── src/
+│   └── inspectai/
+│       ├── api/
+│       ├── inference/
+│       ├── ingestion/
+│       ├── inspection/
+│       └── storage/
+├── tests/
+├── Dockerfile
+├── compose.yaml
+├── pyproject.toml
+├── uv.lock
+└── README.md
+```
 
-- No independent final test set after model selection
-- Synthetic 3D defect data
-- Pre-aligned point-cloud requirement
-- Illustrative geometric tolerances
+The screenshot files are added separately and must exist at the paths shown for the README images to render.
+
+## 11. Limitations and Future Improvements
+
+InspectAI is a portfolio and research demonstration, not a certified industrial inspection product.
+
+### Current Limitations
+
+- No independent final evaluation after model selection
+- Synthetic 3D point-cloud data
+- Pre-aligned 3D scans required
+- Illustrative defect tolerances
 - Sampled rather than continuous video inference
-- Local-only deployment without authentication
-- Model checkpoints not included in the Git repository
-- Historical experiment lineage not independently verified
+- No authentication or authorization for public deployment
+- Trained checkpoints are not distributed in Git
+- Historical MLflow dataset lineage is not independently verified
 
-Potential improvements include real industrial 3D datasets, stronger data lineage, independent model validation, access control, and production monitoring.
+### Potential Improvements
 
-## Project Status
+- Evaluate on additional industrial datasets
+- Add independent final model validation
+- Improve 3D registration and geometric defect detection
+- Add authenticated access and monitoring
+- Automate model artifact management
+- Add CI/CD and automated Docker validation
+- Provide a reproducible demo model or documented training workflow
 
-- Data ingestion and validation: Complete
-- Dataset fingerprinting: Complete
-- PatchCore inference: Complete
-- 3D inspection: Complete
-- Video inspection: Complete
-- FastAPI backend: Complete
-- Streamlit dashboard: Complete
-- SQLite history: Complete
-- Docker ARM64 validation: Complete
-- Automated tests: 49 passing
+## 12. Dataset Attribution
 
-## Dataset Attribution
+The 2D experiments use the **MVTec Anomaly Detection (MVTec AD)** dataset.
 
-2D anomaly detection uses the MVTec Anomaly Detection (MVTec AD) dataset.
+Official dataset:
 
-Official dataset information:
 https://www.mvtec.com/company/research/datasets/mvtec-ad
 
-Review the dataset's license and usage conditions before redistribution.
+Dataset licensing and usage conditions should be reviewed before redistribution.
 
 ## License
 
-No project license has been selected yet. Third-party dependencies and datasets retain their respective licenses.
+No project license has been selected. Third-party dependencies and datasets retain their respective licenses.
