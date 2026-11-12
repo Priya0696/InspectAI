@@ -1,0 +1,59 @@
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+
+# Local databases
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Raw and processed datasets
+data/raw/
+data/processed/
+data/manifests/
+
+# Model checkpoints and experiments
+*.ckpt
+*.pth
+*.pt
+*.onnx
+mlruns/
+mlartifacts/
+lightning_logs/
+
+# Generated reports and predictions
+reports/
+
+# Temporary files
+tmp/
+temp/
+*.log
+
+# Streamlit
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+
+# Anomalib / PatchCore generated inference outputs
+results/

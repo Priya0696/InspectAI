@@ -1,0 +1,51 @@
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: inspectai:local
+    platform: linux/arm64
+    ports:
+      - "127.0.0.1:8001:8001"
+    environment:
+      PYTHONPATH: /app/src
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+    volumes:
+      - ./reports/patchcore_384:/app/reports/patchcore_384:ro
+      - ./data/processed:/app/data/processed
+    command:
+      - uv
+      - run
+      - --no-sync
+      - uvicorn
+      - inspectai.api.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8001"
+    restart: "no"
+
+  dashboard:
+    image: inspectai:local
+    platform: linux/arm64
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      PYTHONPATH: /app/src
+      INSPECTAI_API_URL: http://api:8001
+    command:
+      - uv
+      - run
+      - --no-sync
+      - streamlit
+      - run
+      - dashboard/app.py
+      - --server.address
+      - 0.0.0.0
+      - --server.port
+      - "8501"
+    restart: "no"

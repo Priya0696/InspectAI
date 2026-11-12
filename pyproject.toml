@@ -1,0 +1,36 @@
+
+[project]
+name = "inspectai"
+version = "0.1.0"
+description = "Industrial Visual Inspection Platform using Computer Vision, 3D Point Clouds, and Data Engineering"
+requires-python = ">=3.11,<3.12"
+
+dependencies = [
+    "pillow",
+    "opencv-python",
+    "pandas",
+    "pyarrow",
+    "pydantic",
+    "pyyaml",
+    "matplotlib>=3.11.2",
+    "numpy>=2.4.6",
+    "torch>=2.15.0",
+    "torchvision>=0.29.2",
+    "anomalib>=2.7.0",
+    "fastapi>=0.162.4",
+    "uvicorn>=0.54.0",
+    "python-multipart>=0.0.33",
+    "open3d>=0.20.0",
+    "mlflow>=3.18.0",
+    "streamlit>=1.67.0",
+    "requests>=2.34.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
