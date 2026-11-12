@@ -81,7 +81,7 @@ def show_image_inspection():
     st.image(
         uploaded_file,
         caption=uploaded_file.name,
-        use_container_width=True,
+        width=450,
     )
 
     if st.button(
